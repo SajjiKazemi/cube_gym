@@ -9,7 +9,7 @@ class CubeGym(gym.Env):
 
     def __init__(self, render_mode=None, size=5):
         self.size = size  # The size of the square grid
-        self.window_size = 512  # The size of the PyGame window
+        self.window_size = 712  # The size of the PyGame window
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
@@ -47,6 +47,7 @@ class CubeGym(gym.Env):
         """
         self.window = None
         self.clock = None
+        self.canvas = {'x': None, 'y': None}
 
     def _get_obs(self):
         return {"agent": self._agent_location, "target": self._target_location}
@@ -110,49 +111,12 @@ class CubeGym(gym.Env):
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        canvas = pygame.Surface((self.window_size, self.window_size))
-        canvas.fill((255, 255, 255))
-        pix_square_size = (
-            self.window_size / self.size
-        )  # The size of a single grid square in pixels
-
-        # First we draw the target
-        pygame.draw.rect(
-            canvas,
-            (255, 0, 0),
-            pygame.Rect(
-                pix_square_size * self._target_location,
-                (pix_square_size, pix_square_size),
-            ),
-        )
-        # Now we draw the agent
-        pygame.draw.circle(
-            canvas,
-            (0, 0, 255),
-            (self._agent_location + 0.5) * pix_square_size,
-            pix_square_size / 3,
-        )
-
-        # Finally, add some gridlines
-        for x in range(self.size + 1):
-            pygame.draw.line(
-                canvas,
-                0,
-                (0, pix_square_size * x),
-                (self.window_size, pix_square_size * x),
-                width=3,
-            )
-            pygame.draw.line(
-                canvas,
-                0,
-                (pix_square_size * x, 0),
-                (pix_square_size * x, self.window_size),
-                width=3,
-            )
+        self.canvas = self.update_canvas()
 
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
-            self.window.blit(canvas, canvas.get_rect())
+            self.window.blit(self.canvas.get('x'), self.canvas.get('x').get_rect())
+            self.window.blit(self.canvas.get('y'), self.canvas.get('y').get_rect(x=self.window_size/2, y = 0))
             pygame.event.pump()
             pygame.display.update()
 
@@ -163,6 +127,93 @@ class CubeGym(gym.Env):
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )
+
+    def update_canvas(self):
+        sub_size = self.window_size/2 - 20
+        #The following line is for the x-axis canvas
+        self.canvas['x'] = pygame.Surface((sub_size, sub_size))
+        self.canvas['x'].fill((255, 255, 255))
+        pix_square_size = (
+            sub_size / (self.size)
+        )  # The size of a single grid square in pixels
+
+        # First we draw the target
+        pygame.draw.rect(
+            self.canvas['x'],
+            (255, 0, 0),
+            pygame.Rect(
+                pix_square_size * self._target_location,
+                (pix_square_size, pix_square_size),
+            ),
+        )
+        # Now we draw the agent
+        pygame.draw.circle(
+            self.canvas['x'],
+            (0, 0, 255),
+            (self._agent_location + 0.5) * pix_square_size,
+            pix_square_size / 3,
+        )
+
+        # Finally, add some gridlines
+        for x in range(self.size + 1):
+            pygame.draw.line(
+                self.canvas['x'],
+                0,
+                (0, pix_square_size * x),
+                (sub_size, pix_square_size * x),
+                width=3,
+            )
+            pygame.draw.line(
+                self.canvas['x'],
+                0,
+                (pix_square_size * x, 0),
+                (pix_square_size * x, sub_size),
+                width=3,
+            )
+
+
+        #The following line is for the y-axis canvas
+        self.canvas['y'] = pygame.Surface((sub_size, sub_size))
+        self.canvas['y'].fill((255, 255, 255))
+        pix_square_size = (
+            sub_size / (self.size)
+        )  # The size of a single grid square in pixels
+
+        # First we draw the target
+        pygame.draw.rect(
+            self.canvas['y'],
+            (255, 0, 0),
+            pygame.Rect(
+                pix_square_size * self._target_location,
+                (pix_square_size, pix_square_size),
+            ),
+        )
+        # Now we draw the agent
+        pygame.draw.circle(
+            self.canvas['y'],
+            (0, 0, 255),
+            (self._agent_location + 0.5) * pix_square_size,
+            pix_square_size / 3,
+        )
+
+        # Finally, add some gridlines
+        for x in range(self.size + 1):
+            pygame.draw.line(
+                self.canvas['y'],
+                0,
+                (0, pix_square_size * x),
+                (sub_size, pix_square_size * x),
+                width=3,
+            )
+            pygame.draw.line(
+                self.canvas['y'],
+                0,
+                (pix_square_size * x, 0),
+                (pix_square_size * x, sub_size),
+                width=3,
+            )
+        
+        return self.canvas
 
     def close(self):
         if self.window is not None:
