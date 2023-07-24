@@ -15,13 +15,13 @@ class CubeGym(gym.Env):
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
         self.observation_space = spaces.Dict(
             {
-                "agent": spaces.Box(0, size - 1, shape=(2,), dtype=int),
-                "target": spaces.Box(0, size - 1, shape=(2,), dtype=int),
+                "agent": spaces.Box(0, size - 1, shape=(3,), dtype=int),
+                "target": spaces.Box(0, size - 1, shape=(3,), dtype=int),
             }
         )
 
-        # We have 4 actions, corresponding to "right", "up", "left", "down", "right"
-        self.action_space = spaces.Discrete(4)
+        # We have 4 actions, corresponding to "right", "up", "left", "down", "forward"
+        self.action_space = spaces.Discrete(5)
 
         """
         The following dictionary maps abstract actions from `self.action_space` to 
@@ -29,10 +29,11 @@ class CubeGym(gym.Env):
         I.e. 0 corresponds to "right", 1 to "up" etc.
         """
         self._action_to_direction = {
-            0: np.array([1, 0]),
-            1: np.array([0, 1]),
-            2: np.array([-1, 0]),
-            3: np.array([0, -1]),
+            0: np.array([1, 0, 0]),     #right
+            1: np.array([0, 1, 0]),     #up
+            2: np.array([-1, 0, 0]),    #left
+            3: np.array([0, -1, 0]),    #down
+            4: np.array([0, 0, 1])      #forward
         }
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
@@ -47,7 +48,7 @@ class CubeGym(gym.Env):
         """
         self.window = None
         self.clock = None
-        self.canvas = {'x': None, 'y': None}
+        self.canvas = {'x': None, 'y': None, 'z': None}
 
     def _get_obs(self):
         return {"agent": self._agent_location, "target": self._target_location}
@@ -65,13 +66,17 @@ class CubeGym(gym.Env):
 
         # Choose the agent's location uniformly at random
         self._agent_location = self.np_random.integers(0, self.size, size=2, dtype=int)
-
+        self._agent_location = np.append(self._agent_location, 0)
         # We will sample the target's location randomly until it does not coincide with the agent's location
-        self._target_location = self._agent_location
-        while np.array_equal(self._target_location, self._agent_location):
-            self._target_location = self.np_random.integers(
-                0, self.size, size=2, dtype=int
-            )
+        self._target_location = self.np_random.integers(
+            0, self.size, size=2, dtype=int
+        )
+        self._target_location = np.append(self._target_location, self.size-1)
+        #self._target_location = self._agent_location
+        # while np.array_equal(self._target_location, self._agent_location):
+        #     self._target_location = self.np_random.integers(
+        #         0, self.size, size=3, dtype=int
+        #     )
 
         observation = self._get_obs()
         info = self._get_info()
@@ -116,7 +121,9 @@ class CubeGym(gym.Env):
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
             self.window.blit(self.canvas.get('x'), self.canvas.get('x').get_rect())
-            self.window.blit(self.canvas.get('y'), self.canvas.get('y').get_rect(x=self.window_size/2, y = 0))
+            self.window.blit(self.canvas.get('y'), self.canvas.get('y').get_rect(x=self.window_size/2, y =0))
+            self.window.blit(self.canvas.get('z'), self.canvas.get('z').get_rect(x=self.window_size/2, y =self.window_size/2))
+
             pygame.event.pump()
             pygame.display.update()
 
@@ -129,7 +136,16 @@ class CubeGym(gym.Env):
             )
 
     def update_canvas(self):
-        sub_size = self.window_size/2 - 20
+        sub_size = self.window_size/2 - 3
+
+        self.update_xcanvas(sub_size)
+        self.update_ycanvas(sub_size)
+        self.update_zcanvas(sub_size)      
+        
+        return self.canvas
+
+    
+    def update_xcanvas(self, sub_size=3):
         #The following line is for the x-axis canvas
         self.canvas['x'] = pygame.Surface((sub_size, sub_size))
         self.canvas['x'].fill((255, 255, 255))
@@ -142,7 +158,7 @@ class CubeGym(gym.Env):
             self.canvas['x'],
             (255, 0, 0),
             pygame.Rect(
-                pix_square_size * self._target_location,
+                pix_square_size * self._target_location[1:],
                 (pix_square_size, pix_square_size),
             ),
         )
@@ -150,7 +166,7 @@ class CubeGym(gym.Env):
         pygame.draw.circle(
             self.canvas['x'],
             (0, 0, 255),
-            (self._agent_location + 0.5) * pix_square_size,
+            (self._agent_location[1:] + 0.5) * pix_square_size,
             pix_square_size / 3,
         )
 
@@ -170,9 +186,11 @@ class CubeGym(gym.Env):
                 (pix_square_size * x, sub_size),
                 width=3,
             )
-
-
+    
+    def update_ycanvas(self, sub_size=3):
         #The following line is for the y-axis canvas
+        y_target_location = np.array([self._target_location[0], self._target_location[2]])
+        y_agent_location = np.array([self._agent_location[0], self._agent_location[2]])
         self.canvas['y'] = pygame.Surface((sub_size, sub_size))
         self.canvas['y'].fill((255, 255, 255))
         pix_square_size = (
@@ -184,7 +202,7 @@ class CubeGym(gym.Env):
             self.canvas['y'],
             (255, 0, 0),
             pygame.Rect(
-                pix_square_size * self._target_location,
+                pix_square_size * y_target_location,
                 (pix_square_size, pix_square_size),
             ),
         )
@@ -192,7 +210,7 @@ class CubeGym(gym.Env):
         pygame.draw.circle(
             self.canvas['y'],
             (0, 0, 255),
-            (self._agent_location + 0.5) * pix_square_size,
+            (y_agent_location + 0.5) * pix_square_size,
             pix_square_size / 3,
         )
 
@@ -212,8 +230,48 @@ class CubeGym(gym.Env):
                 (pix_square_size * x, sub_size),
                 width=3,
             )
-        
-        return self.canvas
+    
+    def update_zcanvas(self, sub_size=3):
+        #The following line is for the z-axis canvas
+        self.canvas['z'] = pygame.Surface((sub_size, sub_size))
+        self.canvas['z'].fill((255, 255, 255))
+        pix_square_size = (
+            sub_size / (self.size)
+        )  # The size of a single grid square in pixels
+
+        # First we draw the target
+        pygame.draw.rect(
+            self.canvas['z'],
+            (255, 0, 0),
+            pygame.Rect(
+                pix_square_size * self._target_location[:-1],
+                (pix_square_size, pix_square_size),
+            ),
+        )
+        # Now we draw the agent
+        pygame.draw.circle(
+            self.canvas['z'],
+            (0, 0, 255),
+            (self._agent_location[:-1] + 0.5) * pix_square_size,
+            pix_square_size / 3,
+        )
+
+        # Finally, add some gridlines
+        for x in range(self.size + 1):
+            pygame.draw.line(
+                self.canvas['z'],
+                0,
+                (0, pix_square_size * x),
+                (sub_size, pix_square_size * x),
+                width=3,
+            )
+            pygame.draw.line(
+                self.canvas['z'],
+                0,
+                (pix_square_size * x, 0),
+                (pix_square_size * x, sub_size),
+                width=3,
+            )
 
     def close(self):
         if self.window is not None:
