@@ -2,7 +2,11 @@ import gym
 from gym import spaces
 import pygame
 import numpy as np
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
+from rsc.helper import *
 
 class CubeGym(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
@@ -10,6 +14,8 @@ class CubeGym(gym.Env):
     def __init__(self, render_mode=None, size=5):
         self.size = size  # The size of the square grid
         self.window_size = 712  # The size of the PyGame window
+        self.fig = plt.figure()
+
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
@@ -116,35 +122,62 @@ class CubeGym(gym.Env):
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
-        self.canvas = self.update_canvas()
 
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
-            self.window.blit(self.canvas.get('x'), self.canvas.get('x').get_rect())
-            self.window.blit(self.canvas.get('y'), self.canvas.get('y').get_rect(x=self.window_size/2, y =0))
-            self.window.blit(self.canvas.get('z'), self.canvas.get('z').get_rect(x=self.window_size/2, y =self.window_size/2))
-
+            self.canvas = self.update_canvas()
+            self.update_window()
             pygame.event.pump()
             pygame.display.update()
 
             # We need to ensure that human-rendering occurs at the predefined framerate.
             # The following line will automatically add a delay to keep the framerate stable.
             self.clock.tick(self.metadata["render_fps"])
+        
         else:  # rgb_array
             return np.transpose(
                 np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
             )
 
-    def update_canvas(self):
+    def update_window(self):
+        self.window.blit(self.canvas.get('x'), self.canvas.get('x').get_rect())
+        self.window.blit(self.canvas.get('y'), self.canvas.get('y').get_rect(x=self.window_size/2, y =0))
+        self.window.blit(self.canvas.get('z'), self.canvas.get('z').get_rect(x=self.window_size/2, y =self.window_size/2))
+        return
+    
+    def update_canvas(self, plot_3d=False):
         sub_size = self.window_size/2 - 3
 
         self.update_xcanvas(sub_size)
         self.update_ycanvas(sub_size)
         self.update_zcanvas(sub_size)      
-        
+        self.plot_3dview(sub_size)
         return self.canvas
 
+    def plot_3dview(self, sub_size=3):
+        axes = [self.size, self.size, self.size]
+        data = np.ones(axes, dtype=np.bool_)
+        alpha = 0.01
+        colors = np.empty(axes + [4], dtype=np.float32)
+        colors[:] = [1, 1, 1, alpha]  # white
+
+
+        ax = self.fig.add_subplot(111, projection='3d')
+        ax.voxels(data, facecolors=colors, edgecolors='black')
+        
+        target_cube = draw3d_target_cube(self._target_location, 'red')
+        agent_cube = draw3d_target_cube(self._agent_location, 'blue')
+        #x, y, z = draw3d_agent_sphere(self._agent_location, 0.5)
+        #agent_sphere = ax.plot_surface(x, y, z, color='blue', alpha=0.5)
+        #ax.add_collection3d(agent_sphere)
+        ax.add_collection3d(agent_cube)
+        ax.add_collection3d(target_cube)
+        plt.show(block=False)
+        plt.pause(0.000001)
+        return
+        
     
+
     def update_xcanvas(self, sub_size=3):
         #The following line is for the x-axis canvas
         self.canvas['x'] = pygame.Surface((sub_size, sub_size))
