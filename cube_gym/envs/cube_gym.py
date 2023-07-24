@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 from rsc.helper import *
 
 class CubeGym(gym.Env):
-    metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
+    metadata = {"render_modes": ["human", "rgb_array", "3d"], "render_fps": 4}
 
     def __init__(self, render_mode=None, size=5):
         self.size = size  # The size of the square grid
@@ -44,6 +44,12 @@ class CubeGym(gym.Env):
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
+        if self.render_mode == "3d":
+            self.update_3d = True
+            self.render_mode = "human"
+        else:
+            self.update_3d = False
+
 
         """
         If human-rendering is used, `self.window` will be a reference
@@ -105,7 +111,7 @@ class CubeGym(gym.Env):
         observation = self._get_obs()
         info = self._get_info()
 
-        if self.render_mode == "human":
+        if self.render_mode == "human" or self.render_mode == "3d":
             self._render_frame()
 
         return observation, reward, terminated, False, info
@@ -115,6 +121,7 @@ class CubeGym(gym.Env):
             return self._render_frame()
 
     def _render_frame(self):
+
         if self.window is None and self.render_mode == "human":
             pygame.init()
             pygame.display.init()
@@ -125,7 +132,7 @@ class CubeGym(gym.Env):
 
         if self.render_mode == "human":
             # The following line copies our drawings from `canvas` to the visible window
-            self.canvas = self.update_canvas()
+            self.canvas = self.update_canvas(self.update_3d)
             self.update_window()
             pygame.event.pump()
             pygame.display.update()
@@ -150,8 +157,9 @@ class CubeGym(gym.Env):
 
         self.update_xcanvas(sub_size)
         self.update_ycanvas(sub_size)
-        self.update_zcanvas(sub_size)      
-        self.plot_3dview(sub_size)
+        self.update_zcanvas(sub_size)
+        if plot_3d:      
+            self.plot_3dview(sub_size)
         return self.canvas
 
     def plot_3dview(self, sub_size=3):
