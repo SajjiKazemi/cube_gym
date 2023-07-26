@@ -13,7 +13,7 @@ class CubeGym(gym.Env):
 
     def __init__(self, render_mode=None, size=5):
         self.size = size  # The size of the square grid
-        self.window_size = 712  # The size of the PyGame window
+        self.window_size = 1000  # The size of the PyGame window
         self.fig = plt.figure()
 
 
@@ -148,12 +148,30 @@ class CubeGym(gym.Env):
 
     def update_window(self):
         self.window.blit(self.canvas.get('x'), self.canvas.get('x').get_rect())
+        text, textRect = self.get_cpation('Y-Z Axis')
+        self.window.blit(text, textRect)
         self.window.blit(self.canvas.get('y'), self.canvas.get('y').get_rect(x=self.window_size/2, y =0))
+        text, textRect = self.get_cpation('X-Z Axis')
+        self.window.blit(text, textRect)
         self.window.blit(self.canvas.get('z'), self.canvas.get('z').get_rect(x=self.window_size/2, y =self.window_size/2))
+        text, textRect = self.get_cpation('X-Y Axis')
+        self.window.blit(text, textRect)
         return
     
+    def get_cpation(self, caption):
+        font = pygame.font.Font('freesansbold.ttf', 12)
+        text = font.render(caption, True, (0, 0, 128), (255, 255, 255))
+        textRect = text.get_rect()
+        if caption == 'Y-Z Axis':
+            textRect.center = (self.window_size/4, self.window_size/2 - 5)
+        elif caption == 'X-Z Axis':
+            textRect.center = (self.window_size/4 + self.window_size/2, self.window_size/2 - 5)
+        elif caption == 'X-Y Axis':
+            textRect.center = (self.window_size/4 + self.window_size/2, self.window_size - 5)
+        return text, textRect
+    
     def update_canvas(self, plot_3d=False):
-        sub_size = self.window_size/2 - 3
+        sub_size = self.window_size/2 - 10
 
         self.update_xcanvas(sub_size)
         self.update_ycanvas(sub_size)
