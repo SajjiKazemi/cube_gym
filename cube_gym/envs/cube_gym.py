@@ -15,7 +15,8 @@ class CubeGym(gym.Env):
         self.size = size  # The size of the square grid
         self.window_size = 1000  # The size of the PyGame window
         self.fig = plt.figure()
-
+        self.nStates = size ** 3  # The number of states
+        self._path = []  # The number of steps taken in the current episode
 
         # Observations are dictionaries with the agent's and the target's location.
         # Each location is encoded as an element of {0, ..., `size`}^2, i.e. MultiDiscrete([size, size]).
@@ -26,7 +27,8 @@ class CubeGym(gym.Env):
             }
         )
 
-        # We have 4 actions, corresponding to "right", "up", "left", "down", "forward"
+        # We have 5 actions, corresponding to "right", "up", "left", "down", "forward"
+        self.nActions = 5
         self.action_space = spaces.Discrete(5)
 
         """
@@ -61,12 +63,16 @@ class CubeGym(gym.Env):
         self.window = None
         self.clock = None
         self.canvas = {'x': None, 'y': None, 'z': None}
+        self._obstacles = []
+        self._obstacles = self.get_obstacles(Number_of_obstacles=3, random=False)
 
     def _get_obs(self):
         return {"agent": self._agent_location, "target": self._target_location}
 
     def _get_info(self):
         return {
+            "current_state": self.current_state,
+            "next_state": self.next_state,
             "distance": np.linalg.norm(
                 self._agent_location - self._target_location, ord=1
             )
@@ -76,19 +82,17 @@ class CubeGym(gym.Env):
         # We need the following line to seed self.np_random
         super().reset(seed=seed)
 
-        # Choose the agent's location uniformly at random
-        self._agent_location = self.np_random.integers(0, self.size, size=2, dtype=int)
-        self._agent_location = np.append(self._agent_location, 0)
-        # We will sample the target's location randomly until it does not coincide with the agent's location
-        self._target_location = self.np_random.integers(
-            0, self.size, size=2, dtype=int
-        )
-        self._target_location = np.append(self._target_location, self.size-1)
-        #self._target_location = self._agent_location
-        # while np.array_equal(self._target_location, self._agent_location):
-        #     self._target_location = self.np_random.integers(
-        #         0, self.size, size=3, dtype=int
-        #     )
+        self._path = []
+
+        # We reset the agent to the bottom left corner
+        self._agent_location = np.array([0, 0, 0])
+        self.current_state = self._agent_location[0] + self._agent_location[1] * self.size + \
+            self._agent_location[2] * self.size * self.size + 1
+        self._path.append(self.current_state)
+        self.next_state = None
+        
+        # We reset the target to the top right corner
+        self._target_location = np.array([self.size-1, self.size-1, self.size-1])
 
         observation = self._get_obs()
         info = self._get_info()
@@ -99,26 +103,93 @@ class CubeGym(gym.Env):
         return observation, info
 
     def step(self, action):
-        # Map the action (element of {0,1,2,3}) to the direction we walk in
+        # Map the action (element of {0,1,2,3,4}) to the direction we walk in
         direction = self._action_to_direction[action]
         # We use `np.clip` to make sure we don't leave the grid
-        self._agent_location = np.clip(
-            self._agent_location + direction, 0, self.size - 1
-        )
+
         # An episode is done iff the agent has reached the target
-        terminated = np.array_equal(self._agent_location, self._target_location)
-        reward = 1 if terminated else 0  # Binary sparse rewards
-        observation = self._get_obs()
-        info = self._get_info()
+        terminated, reward, reached_goal = self.get_reward(action)  # Binary sparse rewards
 
         if self.render_mode == "human" or self.render_mode == "3d":
             self._render_frame()
 
-        return observation, reward, terminated, False, info
+        if not terminated:
+            self._agent_location = np.clip(
+                self._agent_location + direction, 0, self.size - 1
+            )
 
-    def render(self):
+            self.next_state = self._agent_location[0] + self._agent_location[1] * self.size + \
+                self._agent_location[2] * self.size * self.size + 1
+            self._path.append(self.next_state)
+            observation = self._get_obs()
+            info = self._get_info()
+            self.current_state = self.next_state
+        elif terminated:
+            if not reached_goal:
+                self.next_state = self.current_state
+                self._path.append(self.next_state)
+                observation = self._get_obs()
+                info = self._get_info()
+            else:
+                self._agent_location = np.clip(
+                self._agent_location + direction, 0, self.size - 1
+                )
+
+                self.next_state = self._agent_location[0] + self._agent_location[1] * self.size + \
+                    self._agent_location[2] * self.size * self.size + 1
+                self._path.append(self.next_state)
+                observation = self._get_obs()
+                info = self._get_info()
+                self.current_state = self.next_state
+
+
+
+        return observation, reward, terminated, reached_goal, info
+
+    def get_reward(self, action):
+        direction = self._action_to_direction[action]
+        reward = 0
+        for obstacle in self._obstacles:
+            if np.array_equal(self._agent_location, obstacle):
+                return True, -100, False
+            elif np.linalg.norm(
+                self._agent_location - obstacle, ord=1
+            ) == 1:
+                reward -= 5
+        
+        if self._agent_location[0] == self.size-1 and action == 0:
+            return True, -100, False
+        elif self._agent_location[0] == 0 and action == 2:
+            return True, -100, False
+        elif self._agent_location[1] == self.size-1 and action == 1:
+            return True, -100, False
+        elif self._agent_location[1] == 0 and action == 3:
+            return True, -100, False
+        elif self._agent_location[2] == self.size-1 and action == 4:
+            return True, -100, False
+            
+        if np.array_equal(self._agent_location + direction, self._target_location):
+            return True, 100, True
+        elif action == 4:
+            reward -= 1
+        elif action != 4:
+            reward -= 3
+        
+        return False, reward, False            
+
+
+    def render(self, mode=None):
+        self.render_mode = mode
         if self.render_mode == "rgb_array":
             return self._render_frame()
+        elif self.render_mode == "human":
+            self._render_frame()
+            return None
+        elif self.render_mode == "3d":
+            self.update_3d = True
+            self.render_mode = "human"
+            self._render_frame()
+            return None
 
     def _render_frame(self):
 
@@ -189,10 +260,14 @@ class CubeGym(gym.Env):
 
 
         ax = self.fig.add_subplot(111, projection='3d')
-        ax.voxels(data, facecolors=colors, edgecolors='black')
+        ax.voxels(data, facecolors=colors)
         
         target_cube = draw3d_target_cube(self._target_location, 'red')
         agent_cube = draw3d_target_cube(self._agent_location, 'blue')
+        #Now, we plot the obstacles
+        for obstacle in self._obstacles:
+            obstacle_cube = draw3d_target_cube(obstacle, 'black')
+            ax.add_collection3d(obstacle_cube)
         #x, y, z = draw3d_agent_sphere(self._agent_location, 0.5)
         #agent_sphere = ax.plot_surface(x, y, z, color='blue', alpha=0.5)
         #ax.add_collection3d(agent_sphere)
@@ -202,7 +277,6 @@ class CubeGym(gym.Env):
         plt.pause(0.000001)
         return
         
-    
 
     def update_xcanvas(self, sub_size=3):
         #The following line is for the x-axis canvas
@@ -221,6 +295,16 @@ class CubeGym(gym.Env):
                 (pix_square_size, pix_square_size),
             ),
         )
+        #Then, we draw the obstacles
+        for obstacle in self._obstacles:
+            pygame.draw.rect(
+                self.canvas['x'],
+                (0, 0, 0),
+                pygame.Rect(
+                    pix_square_size * obstacle[1:],
+                    (pix_square_size, pix_square_size),
+                ),
+            )
         # Now we draw the agent
         pygame.draw.circle(
             self.canvas['x'],
@@ -265,6 +349,16 @@ class CubeGym(gym.Env):
                 (pix_square_size, pix_square_size),
             ),
         )
+        #Then, we draw the obstacles
+        for obstacle in self._obstacles:
+            pygame.draw.rect(
+                self.canvas['y'],
+                (0, 0, 0),
+                pygame.Rect(
+                    pix_square_size * np.array([obstacle[0], obstacle[2]]),
+                    (pix_square_size, pix_square_size),
+                ),
+            )
         # Now we draw the agent
         pygame.draw.circle(
             self.canvas['y'],
@@ -307,6 +401,16 @@ class CubeGym(gym.Env):
                 (pix_square_size, pix_square_size),
             ),
         )
+        #Then, we draw the obstacles
+        for obstacle in self._obstacles:
+            pygame.draw.rect(
+                self.canvas['z'],
+                (0, 0, 0),
+                pygame.Rect(
+                    pix_square_size * obstacle[:-1],
+                    (pix_square_size, pix_square_size),
+                ),
+            )
         # Now we draw the agent
         pygame.draw.circle(
             self.canvas['z'],
@@ -336,3 +440,22 @@ class CubeGym(gym.Env):
         if self.window is not None:
             pygame.display.quit()
             pygame.quit()
+
+
+    def get_obstacles(self, Number_of_obstacles=3, random=False):
+        if random:
+            for i in range(Number_of_obstacles):
+                self._obstacles.append(self.get_random_location())
+            return self._obstacles
+        else:
+            self._obstacles.append(np.array([1, 1, 1]))
+            self._obstacles.append(np.array([0, 0, 4]))
+            self._obstacles.append(np.array([5, 5, 5]))
+            self._obstacles.append(np.array([7, 7, 7]))
+            return self._obstacles             
+
+    def get_random_location(self):
+        return np.random.randint(2, self.size-2, size=3)
+
+    def get_agent_location(self):
+        return self._agent_location
