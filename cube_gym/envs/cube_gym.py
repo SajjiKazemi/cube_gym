@@ -2,6 +2,7 @@ import gym
 from gym import spaces
 import pygame
 import numpy as np
+import math
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
@@ -73,6 +74,8 @@ class CubeGym(gym.Env):
         return {
             "current_state": self.current_state,
             "next_state": self.next_state,
+            "current_location": self._current_location,
+            "next_location": self._next_location,
             "distance": np.linalg.norm(
                 self._agent_location - self._target_location, ord=1
             )
@@ -88,8 +91,10 @@ class CubeGym(gym.Env):
         self._agent_location = np.array([0, 0, 0])
         self.current_state = self._agent_location[0] + self._agent_location[1] * self.size + \
             self._agent_location[2] * self.size * self.size + 1
-        self._path.append(self.current_state)
+        self._current_location = self._agent_location
+        self._path.append(self._agent_location)
         self.next_state = None
+        self._next_location = None
         
         # We reset the target to the top right corner
         self._target_location = np.array([self.size-1, self.size-1, self.size-1])
@@ -120,14 +125,17 @@ class CubeGym(gym.Env):
 
             self.next_state = self._agent_location[0] + self._agent_location[1] * self.size + \
                 self._agent_location[2] * self.size * self.size + 1
-            self._path.append(self.next_state)
+            self._next_location = self._agent_location
+            self._path.append(self._agent_location)
             observation = self._get_obs()
             info = self._get_info()
             self.current_state = self.next_state
+            self._current_location = self._next_location
         elif terminated:
             if not reached_goal:
                 self.next_state = self.current_state
-                self._path.append(self.next_state)
+                self._next_location = self._current_location
+                self._path.append(self._agent_location)
                 observation = self._get_obs()
                 info = self._get_info()
             else:
@@ -137,10 +145,12 @@ class CubeGym(gym.Env):
 
                 self.next_state = self._agent_location[0] + self._agent_location[1] * self.size + \
                     self._agent_location[2] * self.size * self.size + 1
-                self._path.append(self.next_state)
+                self._next_location = self._agent_location
+                self._path.append(self._agent_location)
                 observation = self._get_obs()
                 info = self._get_info()
                 self.current_state = self.next_state
+                self._current_location = self._next_location
 
 
 
@@ -151,29 +161,29 @@ class CubeGym(gym.Env):
         reward = 0
         for obstacle in self._obstacles:
             if np.array_equal(self._agent_location, obstacle):
-                return True, -100, False
+                return True, -20, False
             elif np.linalg.norm(
                 self._agent_location - obstacle, ord=1
             ) == 1:
-                reward -= 5
+                reward -= 10
         
         if self._agent_location[0] == self.size-1 and action == 0:
-            return True, -100, False
+            return True, -20, False
         elif self._agent_location[0] == 0 and action == 2:
-            return True, -100, False
+            return True, -20, False
         elif self._agent_location[1] == self.size-1 and action == 1:
-            return True, -100, False
+            return True, -20, False
         elif self._agent_location[1] == 0 and action == 3:
-            return True, -100, False
+            return True, -20, False
         elif self._agent_location[2] == self.size-1 and action == 4:
-            return True, -100, False
+            return True, -20, False
             
         if np.array_equal(self._agent_location + direction, self._target_location):
             return True, 100, True
         elif action == 4:
             reward -= 1
         elif action != 4:
-            reward -= 3
+            reward -= 1
         
         return False, reward, False            
 
@@ -448,9 +458,11 @@ class CubeGym(gym.Env):
                 self._obstacles.append(self.get_random_location())
             return self._obstacles
         else:
-            self._obstacles.append(np.array([1, 1, 1]))
-            self._obstacles.append(np.array([0, 0, 4]))
-            self._obstacles.append(np.array([5, 5, 5]))
+            self._obstacles.append(np.array([1, 1, 3]))
+            self._obstacles.append(np.array([2, 3, 3]))
+            self._obstacles.append(np.array([4, 4, 6]))
+            self._obstacles.append(np.array([3, 4, 5]))
+            self._obstacles.append(np.array([5, 5, 7]))
             self._obstacles.append(np.array([7, 7, 7]))
             return self._obstacles             
 
