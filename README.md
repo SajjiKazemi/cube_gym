@@ -9,7 +9,8 @@ At every state, the agent has five potential movements: up, down, left, right, a
 We make the assumption that these transitions are certain.
 Any of the above-mentioned characteristics can be changed!
 
-![3d](https://github.com/SajjiKazemi/cube_gym/assets/101848412/14278f8e-2348-40bf-9ec6-e08706b7da5c)
+<img src="2d.png" alt="Screenshot" width="400">
+<img src="3d.png" alt="Screenshot" width="400">
 
 
 ## Running the Code
