@@ -1,1 +1,1 @@
-from src.cube_gym.envs.cube_gym import CubeGym
+from cube_gym.envs.cube_gym import CubeGym
