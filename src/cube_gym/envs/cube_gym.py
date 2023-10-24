@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from rsc.helper import *
+from src.helpers import *
 
 class CubeGym(gym.Env):
     metadata = {"render_modes": ["human", "rgb_array", "3d"], "render_fps": 4}

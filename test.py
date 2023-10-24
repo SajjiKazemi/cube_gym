@@ -1,5 +1,8 @@
+import sys
+sys.path.append("./src")
+
 import gym
-import cube_gym
+from src.cube_gym.envs import cube_gym
 
 env = gym.make("cube_gym/CubeGym-v0", render_mode="human", size=10)
 observation, info = env.reset()
