@@ -1,11 +1,11 @@
 # CubeGym Environment for Training an RL Agent to Find the Optimal Path
 
-This repository contains the code for the CubeGym environment. The environment is included a cube of
+This repository contains the code for the CubeGym environment. The environment includes a cube of
 an arbitrary size which is divided into several smaller, the same-size, cubes, as can be seen
 in the following figure. Several cells are occupied by obstacles, restricting the agent’s ability to pass
 through them. We proceed with the assumption that the obstacles remain stationary and
 do not undergo any relocation.
-At every state, the agent has five potential movements: up, down, left, right, and forwards.
+At every state, the agent has five potential movements: up, down, left, right, and forward.
 We make the assumption that these transitions are certain.
 Any of the above-mentioned characteristics can be changed!
 
